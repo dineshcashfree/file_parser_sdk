@@ -5,6 +5,7 @@ setup(
     name="file_parser_sdk",
     version="0.2.9",
     description="File Parser SDK which is designed to parse various file types and transform them according to provided configuration",
+    long_description=open("README.md", "r", encoding="utf-8").read(),
     author="Dinesh Lakhara",
     author_email='dinesh.lakhara@cashfree.com',
     packages=find_packages(include=["file_parser_sdk", "file_parser_sdk.*"]),
