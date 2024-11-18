@@ -22,12 +22,8 @@ pip install file_parser_sdk
 - **Define Custom Edge Cases:**
 When specific functions are needed during file parsing, the SDK will import edge cases from your project structure as shown below. To implement this, create an edgeCases folder in your project and add a file named user_edge_cases.py. Define your custom functions in this file, and reference them in the edge_case section within the file_config as shown below.
 ```
-try:
-    from edgeCases import user_edge_cases
-    self.edge_cases = user_edge_cases
-except ImportError:
-    self.edge_cases = None
-    self._logger.print_log(LogLevel.WARNING.value, message = "FileParser :: Warning: No user-defined edge cases found. Edge case functions won't be available.")
+from edgeCases import user_edge_cases
+self.edge_cases = user_edge_cases
 ```
 
 - **Define the configuration required for file parsing logic and S3 bucket names**
