@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="file_parser_sdk",
-    version="0.2.8",
+    version="0.2.9",
     description="File Parser SDK which is designed to parse various file types and transform them according to provided configuration",
     author="Dinesh Lakhara",
     author_email='dinesh.lakhara@cashfree.com',
