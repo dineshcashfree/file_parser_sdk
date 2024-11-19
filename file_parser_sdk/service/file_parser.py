@@ -30,7 +30,7 @@ class FileParser:
 
     def get_sheet_names(self, config):
         all_sheet_names = []
-        if config is None or file_parser_constants.mark_entry_type_based_on_sheets not in config or file_parser_constants.sheet_type not in config[file_parser_constants.sheet_type]:
+        if config is None or file_parser_constants.mark_entry_type_based_on_sheets not in config or file_parser_constants.sheet_type not in config[file_parser_constants.mark_entry_type_based_on_sheets]:
             return all_sheet_names
         all_sheet_names = [sheet_name for sheet_list in config[file_parser_constants.mark_entry_type_based_on_sheets][file_parser_constants.sheet_type].values() for sheet_name in sheet_list]
         return all_sheet_names
