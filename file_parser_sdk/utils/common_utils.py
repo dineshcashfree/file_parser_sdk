@@ -1,9 +1,7 @@
-import datetime
 import pandas as pd
 from datetime import date
 from ..exceptions.expcetion import FileProcessFailException 
 from ..enums.FilterType import FilterType
-from ..utils import file_parser_constants
 
 def get_dynamic_password_based_on_time():
         try:
@@ -26,15 +24,3 @@ def filter_entries_by_transaction_types_list(df, column_name, filter_value_list,
             current_filtered_df = df[df[column_name].str.startswith(filter_value)]
         filtered_df = pd.concat([filtered_df, current_filtered_df])
     return filtered_df
-
-def convert_date_format(date, from_pattern):
-    return datetime.datetime.strptime(date, from_pattern).strftime(file_parser_constants.common_date_format)
-
-
-def convert_date_format_multi_dates(input_date, from_patterns):
-    for date_format in from_patterns:
-        try:
-            return datetime.datetime.strptime(input_date, date_format).strftime(file_parser_constants.common_date_format)
-        except ValueError:
-            continue
-    raise ValueError('No valid date format found')

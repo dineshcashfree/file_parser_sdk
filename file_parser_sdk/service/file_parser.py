@@ -27,13 +27,21 @@ class FileParser:
         except ImportError:
             self.edge_cases = None
             self._logger.print_log(LogLevel.WARNING.value, message = "FileParser :: Warning: No user-defined edge cases found. Edge case functions won't be available.")
+
+    def get_sheet_names(self, config):
+        all_sheet_names = []
+        if config is None or file_parser_constants.mark_entry_type_based_on_sheets not in config or file_parser_constants.sheet_type not in config[file_parser_constants.sheet_type]:
+            return all_sheet_names
+        all_sheet_names = [sheet_name for sheet_list in config[file_parser_constants.mark_entry_type_based_on_sheets][file_parser_constants.sheet_type].values() for sheet_name in sheet_list]
+        return all_sheet_names
     
     def zip_file_reader(self, input_file_path, file_dtype, parameters, skip_footer=0, disable_skip_rows_sheets=[]):
         compression_type = self.file_config.get(file_parser_constants.compression_type, None)
         zfile = self.s3_file_parser.readZipFromS3(input_file_path, compression_type)
-        sheet_names = parameters.get("sale_sheet_names", []) + parameters.get("refund_sheet_names", []) + parameters.get("chargeback_sheet_names", [])
+
+        sheet_names = self.get_sheet_names(parameters)
         if len(sheet_names)>0:
-            df = self.create_dataframe_with_sheets(zfile, input_file_path, file_dtype, **parameters,skip_footer=skip_footer, disable_skip_rows_sheets=disable_skip_rows_sheets)
+            df = self.create_dataframe_with_sheets(zfile, input_file_path, file_dtype, **parameters, skip_footer=skip_footer, disable_skip_rows_sheets=disable_skip_rows_sheets, sheet_names = sheet_names)
         else: 
             df = self.create_dataframe(zfile, input_file_path, file_dtype, **parameters, skip_footer=skip_footer)
         return df
@@ -111,81 +119,54 @@ class FileParser:
             skip_rows = skiprows
             if sheet_name in disable_skip_rows_sheets:
                 skip_rows = 0
-            dfs[sheet_name] = self.s3_file_parser.creating_df_based_on_file_types(zfile.open(file_name, pwd=bytes(password, 'utf-8')), input_file_path, file_type, file_dtype=file_dtype, sep=sep, header_info={'header': header, 'has_header': has_header}, skiprows=skip_rows, sheet_name=sheet_name, skip_footer=skip_footer)
+            dfs[sheet_name] = self.s3_file_parser.creating_df_based_on_file_types(zfile.open(file_name, pwd=bytes(password, 'utf-8') if password else None), input_file_path, file_type, file_dtype=file_dtype, sep=sep, header_info={'header': header, 'has_header': has_header}, skiprows=skip_rows, sheet_name=sheet_name, skip_footer=skip_footer)
             dropna_column = self.file_config.get("dropna_column", None)
         if dropna_column is not None:
             dfs[sheet_name] = dfs[sheet_name].dropna(subset=[dropna_column])
         return dfs
     
-    def create_dataframe_with_sheets(self, zfile, input_file_path, file_dtype=None, password_protected=False, password_secret_key = None, ignore_file_based_on_extension=[],sale_sheet_names=[], refund_sheet_names=[],chargeback_sheet_names=[] , ignore_file_based_on_name="", sep=",", header=None, has_header=True, skiprows=0,skip_footer=0, disable_skip_rows_sheets=[]):
+    def create_dataframe_with_sheets(self, zfile, input_file_path, file_dtype=None, password_protected=False, password_secret_key = None, ignore_file_based_on_extension=[], mark_entry_type_based_on_sheets={}, ignore_file_based_on_name="", sep=",", header=None, has_header=True, skiprows=0,skip_footer=0, disable_skip_rows_sheets=[], sheet_names = []):
         dfs = {}
         try:
             for file_name in zfile.namelist():
                 file_type = self.s3_file_parser.detect_type(file_name)
+                password = None
                 if password_protected:
                     password = os.environ[password_secret_key]
-                    sheet_names = sale_sheet_names+ refund_sheet_names + chargeback_sheet_names
-                    dfs = self.get_dataframe_for_multiple_sheets(sheet_names, zfile, file_name, password, input_file_path, file_type, file_dtype, sep, header, has_header, skiprows,skip_footer=skip_footer, disable_skip_rows_sheets=disable_skip_rows_sheets)
+                dfs = self.get_dataframe_for_multiple_sheets(sheet_names, zfile, file_name, password, input_file_path, file_type, file_dtype, sep, header, has_header, skiprows,skip_footer=skip_footer, disable_skip_rows_sheets=disable_skip_rows_sheets)
 
-                    sale_df = pd.DataFrame({})
-                    refund_df = pd.DataFrame({})
-                    chargeback_df = pd.DataFrame({})
-                    for sheet_name in sale_sheet_names:
-                          sale_df = pd.concat([sale_df, dfs[sheet_name]])
-                    for sheet_name in refund_sheet_names:
-                          refund_df = pd.concat([refund_df, dfs[sheet_name]])
-                    for sheet_name in chargeback_sheet_names:
-                          chargeback_df = pd.concat([chargeback_df, dfs[sheet_name]])
+                dfs_by_sheet_type = {}
+                for df_type, sheet_names in mark_entry_type_based_on_sheets[file_parser_constants.sheet_type].items():
+                    df = pd.DataFrame({})
+                    for sheet_name in sheet_names:
+                        df = pd.concat([df, dfs[sheet_name]])
+                    # Add the specified column with the type (key) as the value
+                    df[mark_entry_type_based_on_sheets[file_parser_constants.column_name]] = df_type
+                    dfs_by_sheet_type[df_type] = df
 
-                    sale_df[file_parser_constants.MisTransactionType]=file_parser_constants.sale
-                    refund_df[file_parser_constants.MisTransactionType]=file_parser_constants.refund
-                    chargeback_df[file_parser_constants.MisTransactionType]=file_parser_constants.chargeback
-                    df = pd.concat([sale_df, refund_df, chargeback_df])
-
+                # Concatenate all dataframes into a single dataframe
+                final_df = pd.concat(dfs_by_sheet_type.values())
         except Exception as e:
             self._logger.print_log(LogLevel.ERROR.value, self._file_name, "createDataFrame :: Failed to load dataframe :: Error: " + str(e))
             raise FileProcessFailException("createDataFrame::Failed to load dataframe "+str(e))
-        return df
+        return final_df
 
     def sanitize_file(self, df):
         try:
             self._logger.print_log(LogLevel.WARNING.value, self._file_name,
                                   self._file_source+" :: file size = " + str(df.shape[0])+" :: columns :: "+str(df.columns))
-
+            if df.shape[0] == 0:
+                return df
+            
             df = self.apply_edge_cases(df)
             
             df.rename(
                 columns=self.file_config["columns_mapping"], inplace = True)
-            if df.shape[0] == 0:
-                return df
-            transaction_date_format = self.file_config["transaction_date_format"]
+
             if "filter_based_on_status" in self.file_config and self.file_config["filter_based_on_status"] is not None:
                 filter_type = self.file_config["filter_based_on_status"]["filter_type"] if "filter_type" in self.file_config["filter_based_on_status"] else FilterType.EQUALS.value
                 filter_column = self.file_config["filter_based_on_status"].get("filter_column", None)
                 df = common_utils.filter_entries_by_transaction_types_list(df, filter_column, self.file_config["filter_based_on_status"]["filter_values"], filter_type)
-            if "settlement_account_number" in self.file_config and self.file_config["settlement_account_number"] is not None:
-                df[file_parser_constants.settlement_account] = self.file_config["settlement_account_number"]
-            if self.file_config["drop_txn_time_from_date_time"]:
-                df[file_parser_constants.MisDateTime] = df[file_parser_constants.MisDateTime].str.split(
-                " ", expand=True)[0]
-            if isinstance(transaction_date_format, list):
-                df[file_parser_constants.MisDate] = df.apply(lambda mis_entry: common_utils.
-                                                         convert_date_format_multi_dates(mis_entry[file_parser_constants.MisDateTime], transaction_date_format), axis=1)
-            else:
-                df[file_parser_constants.MisDate] = df.apply(lambda mis_entry: common_utils.convert_date_format(
-                    mis_entry[file_parser_constants.MisDateTime], transaction_date_format), axis=1)
-            df[file_parser_constants.MisDateTime] = df[file_parser_constants.MisDate]
-            if self.file_config["consider_txn_date_as_settlement_date"]:
-                df[file_parser_constants.MisSettlementDate] = df[file_parser_constants.MisDate]
-            else:
-                if self.file_config["drop_time_from_settlement_date_time"]:
-                    df[file_parser_constants.MisSettlementDate] = df[file_parser_constants.MisSettlementDate].str.split(
-                        " ", expand=True)[0]
-                settlement_date_format = self.file_config["settlement_date_format"]
-                if isinstance(settlement_date_format, list):
-                    df[file_parser_constants.MisSettlementDate] = df.apply(lambda mis_entry: common_utils.convert_date_format_multi_dates(mis_entry[file_parser_constants.MisSettlementDate], settlement_date_format), axis=1)
-                else:
-                    df[file_parser_constants.MisSettlementDate] = df.apply(lambda mis_entry: common_utils.convert_date_format(mis_entry[file_parser_constants.MisSettlementDate],settlement_date_format),axis=1)
             return df
         except Exception as e:
             raise Exception(
