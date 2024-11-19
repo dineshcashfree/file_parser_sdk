@@ -3,7 +3,9 @@ File Parser SDK is a Python library designed to simplify the parsing of various 
 
 ### Features
 - **Multi-format Support:** Parse TEXT, CSV, EXCEL, ZIP, XML and PDF files effortlessly from AWS S3.
-- **Customizable Edge Case Handling:** Define and apply custom functions to handle specific parsing requirements.
+- **Multi-format Response:** Supports multiple type of response as per user's need. For eg.- DATAFRAME, JSON, FILE
+- **Password-Proctected Support:** Parse password protected files.
+- **Customizable Edge Case Handling:** Define and apply custom functions to handle specific parsing requirements. There can be multiple edge case to handle while transforming the entries such as sanitise_str_column, convert_amount_as_per_currency, convert_date_format etc.
 - **S3 Integration:** Supports fetching files directly from AWS S3 buckets based on IAM role.
 - **Simple Configuration:** Initialize with straightforward configurations, avoiding the need for additional setup files.
 
@@ -30,7 +32,7 @@ self.edge_cases = user_edge_cases
 ```
     s3_config: {
         upload_bucket: reconciliation-live
-    download_bucket: reconciliation-live
+        download_bucket: reconciliation-live
     }
     file_config: {
         "file_source_1": {
@@ -38,25 +40,28 @@ self.edge_cases = user_edge_cases
             "parameters_for_read_s3": None,
             "file_dtype":{
                 "Order_Number": str,
-                "PG_Ref":str,
-                "AG_Ref":str
+                "Added On":str,
+                "Added By":str
             },
-            "map_based_on_txn_type":False,
-            "columns_mapping":{
-                "Transaction_Type": constants.MisTransactionType,
-                "Merchant_Name": card_constants.MisMerchantName,
-                "Merchant_ID": card_constants.MisMerchantId,
-                "Amount": constants.MisAmount,
-                "Order_Number": constants.MisTxRef,
-                "PG_Ref": constants.MisPgReferenceId,
-                "Settlement_Date": card_constants.MisSettlementDate,
-                "Transaction_Date": constants.MisDateTime,
-                "Fee": card_constants.MisServiceCharge,
-                "ME_IGST": card_constants.MisServiceTax,
-                "Net_Amount": card_constants.MisNetSettlementAmount
-            },
+            "columns_mapping": {
+                <!-- "Column Name in file": "Column name required in output" -->
+                "Transaction Type": "TransactionType",
+                "Cust Name": "CustomerName",
+                "Cust ID": "CustomerId",
+                "Transaction Amount": "Amount",
+                "OrderNumber": "TransactionReference",
+                "Reference ID": "CustomerReferenceId",
+                "Target Date": "TargetDate",
+                "TransactionDate": "TransactionDate",
+                "FeeAmount": "ServiceCharge",
+                "TaxAmount": "ServiceTax",
+                "NetAmount": "NetAmount"
+            }
             "edge_case": {
-                "add_reversal_tx_ref_column": constants.reversal_txRef
+                <!-- edge case function name which you have defined in user_edge_case.py : params required for that function
+                there can be different type of params. For eg. - dict, list, str -->
+                <!-- In this convert_amount_as_per_currency is the edge case function which you want to apply while transforming the entries and "Amount" is the param to this function where you will apply the currency conversion -->
+                "convert_amount_as_per_currency": "Amount"
             }
         },
     }
