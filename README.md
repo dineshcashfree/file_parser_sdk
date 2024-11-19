@@ -55,20 +55,6 @@ self.edge_cases = user_edge_cases
                 "ME_IGST": card_constants.MisServiceTax,
                 "Net_Amount": card_constants.MisNetSettlementAmount
             },
-            "sale_transaction":{
-                "is_present":True,
-                "filter_values":["P"]
-            },
-            "refund_transaction":{
-                "is_present":True,
-                "filter_values":["R"]
-            },
-            "chargeback_transaction":{
-                "is_present":True,
-                "filter_values":["A"]
-            },
-            "transaction_date_format":constants.common_date_format,
-            "drop_txn_time_from_date_time":True,
             "edge_case": {
                 "add_reversal_tx_ref_column": constants.reversal_txRef
             }

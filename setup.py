@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="file_parser_sdk",
-    version="0.2.9",
+    version="0.3.0",
     description="File Parser SDK which is designed to parse various file types and transform them according to provided configuration",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
