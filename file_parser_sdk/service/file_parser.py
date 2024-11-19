@@ -121,7 +121,7 @@ class FileParser:
                 skip_rows = 0
             dfs[sheet_name] = self.s3_file_parser.creating_df_based_on_file_types(zfile.open(file_name, pwd=bytes(password, 'utf-8') if password else None), input_file_path, file_type, file_dtype=file_dtype, sep=sep, header_info={'header': header, 'has_header': has_header}, skiprows=skip_rows, sheet_name=sheet_name, skip_footer=skip_footer)
             dropna_column = self.file_config.get("dropna_column", None)
-        if dropna_column is not None:
+        if dropna_column is not None and dropna_column in dfs[sheet_name].columns:
             dfs[sheet_name] = dfs[sheet_name].dropna(subset=[dropna_column])
         return dfs
     
@@ -189,14 +189,8 @@ class FileParser:
                 # Call the user-defined function with parameters from config
                 if params is None:
                     df = edge_case_func(df)
-                elif isinstance(params, dict):
-                    df = edge_case_func(df, **params)
-                elif isinstance(params, list):
-                    df = edge_case_func(df, *params)
-                elif isinstance(params, str):
-                    df = edge_case_func(df, params)
                 else:
-                    raise ValueError(f"Unsupported parameters for function '{condition_name}'")
+                    df = edge_case_func(df, params)
         
             return df
         except Exception as e:
